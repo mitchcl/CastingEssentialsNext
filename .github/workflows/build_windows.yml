@@ -5,10 +5,14 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Secrets can't be checked in `if` directly. Forks without this secret skip the Sentry upload.
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
 
     steps:
     - uses: actions/checkout@v3
@@ -48,15 +52,15 @@ jobs:
     # This is used by Flask for automatic error reporting.
     - name: Setup Sentry CLI
       uses: mathieu-bour/setup-sentry-cli@v1
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && env.SENTRY_TOKEN != ''
       with:
         version: 2.21.2
-        token: ${{ SECRETS.SENTRY_TOKEN }} # from GitHub secrets
+        token: ${{ env.SENTRY_TOKEN }} # from GitHub secrets
         organization: the-james-multiverse
         project: flask
 
     - name: Upload Debug Symbols to Sentry
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && env.SENTRY_TOKEN != ''
       run: |
         sentry-cli debug-files check ${{ steps.strings.outputs.build-output-dir }}/CastingEssentials.pdb
         sentry-cli debug-files upload --include-sources ${{ steps.strings.outputs.build-output-dir }}/CastingEssentials.pdb
